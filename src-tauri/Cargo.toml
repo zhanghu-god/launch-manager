@@ -1,0 +1,28 @@
+[package]
+name = "launch-manager"
+version = "0.1.0"
+description = "便携软件启动管理器：托盘后台、全局快捷键、本地软件列表"
+authors = ["zhang"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "launch_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true

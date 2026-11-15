@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Launch Manager</title>
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script defer src="./main.js"></script>
+</head>
+<body>
+  <section id="launcher-view" class="view">
+    <header class="panel-header">
+      <div class="panel-title">
+        <h1>启动软件</h1>
+        <span id="scan-dir-label" class="scan-dir"></span>
+      </div>
+      <button id="open-settings" class="icon-button" type="button" title="设置" aria-label="设置">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Zm7.4-2.6.1-.9-.1-.9 2-1.5-2-3.4-2.3.9a7 7 0 0 0-1.6-.9L15.2 3h-4l-.4 2.2a7 7 0 0 0-1.6.9l-2.3-.9-2 3.4 2 1.5-.1.9.1.9-2 1.5 2 3.4 2.3-.9c.5.4 1 .7 1.6.9l.4 2.2h4l.4-2.2a7 7 0 0 0 1.6-.9l2.3.9 2-3.4-2-1.5Z"/></svg>
+      </button>
+    </header>
+    <div id="app-list" class="app-list" role="listbox" aria-label="便携软件列表"></div>
+    <div id="empty-state" class="empty-state" hidden>
+      <strong>没有扫描到便携软件</strong>
+      <span>请在设置中检查软件目录</span>
+    </div>
+    <footer class="hint-bar">↑↓ 选择 · Enter 启动 · 1–9 快速启动 · Esc 隐藏</footer>
+  </section>
+
+  <section id="settings-view" class="view" hidden>
+    <header class="panel-header">
+      <div class="panel-title">
+        <h1>设置</h1>
+        <span class="scan-dir">Launch Manager</span>
+      </div>
+      <button id="back-launcher" class="button secondary" type="button">返回</button>
+    </header>
+    <form id="settings-form" class="settings-form">
+      <label class="field">
+        <span>软件目录</span>
+        <input id="scan-dir" type="text" required>
+      </label>
+      <label class="field">
+        <span>全局快捷键</span>
+        <input id="hotkey" type="text" placeholder="Ctrl+Alt+Space" required>
+      </label>
+      <label class="check-field">
+        <input id="autostart" type="checkbox">
+        <span>开机自启（在用户启动目录创建快捷方式）</span>
+      </label>
+      <label class="check-field">
+        <input id="hide-after-launch" type="checkbox">
+        <span>启动软件后隐藏面板</span>
+      </label>
+      <label class="field">
+        <span>主题</span>
+        <select id="theme">
+          <option value="system">跟随系统</option>
+          <option value="light">浅色</option>
+          <option value="dark">深色</option>
+        </select>
+      </label>
+      <p id="settings-error" class="form-error" role="alert" hidden></p>
+      <div class="form-actions">
+        <button id="rescan-btn" class="button secondary" type="button">重新扫描</button>
+        <span class="spacer"></span>
+        <button id="save-settings" class="button primary" type="submit">保存设置</button>
+      </div>
+    </form>
+    <div class="danger-zone">
+      <button id="quit-btn" class="button danger-ghost" type="button">退出管理器</button>
+    </div>
+  </section>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

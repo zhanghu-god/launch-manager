@@ -1,0 +1,31 @@
+//! 全局快捷键注册与唤出启动面板。
+
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+
+pub fn show_launcher(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+    let _ = app.emit("show-view", "launcher");
+}
+
+pub fn register(app: &AppHandle, hotkey: &str) -> Result<(), String> {
+    let shortcut: Shortcut = hotkey
+        .trim()
+        .parse()
+        .map_err(|e| format!("无法解析快捷键 {hotkey}：{e}"))?;
+    let manager = app.global_shortcut();
+    manager
+        .unregister_all()
+        .map_err(|e| format!("清理旧快捷键失败：{e}"))?;
+    manager
+        .on_shortcut(shortcut, |app, _shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                show_launcher(app);
+            }
+        })
+        .map_err(|e| format!("注册快捷键失败：{e}"))?;
+    Ok(())
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Launch Manager",
+  "version": "0.1.0",
+  "identifier": "com.launchmanager.desktop",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "appDirectoriesOverride": {
+      "config": "./data",
+      "data": "./data",
+      "localData": "./data/cache/webview2",
+      "cache": "./data/cache",
+      "log": "./data/logs"
+    },
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Launch Manager",
+        "width": 560,
+        "height": 620,
+        "visible": false,
+        "center": true,
+        "resizable": false,
+        "skipTaskbar": true,
+        "alwaysOnTop": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": [],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
