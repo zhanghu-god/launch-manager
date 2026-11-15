@@ -49,6 +49,7 @@ pub struct UpdateInfo {
     pub release_url: String,
     pub asset_name: String,
     pub asset_url: String,
+    pub checksums_url: String,
     pub asset_size: u64,
     pub asset_digest: String,
 }

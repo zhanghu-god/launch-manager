@@ -1,5 +1,8 @@
-//! 便携版自动更新：检查 GitHub Release、下载校验 ZIP、暂存新程序并重启替换。
+//! 便携版自动更新（方案二）：不依赖 api.github.com 匿名 API。
 //!
+//! 检查更新走 `github.com/<repo>/releases/latest` 的 302 重定向解析 tag（Web 通道，
+//! 不吃 API 匿名配额，共享出口 IP 也不受限）；完整性靠 Release 内的 `SHA256SUMS.txt`
+//! 资产校验；ZIP 下载直连 release CDN（同样不限流）。
 //! 更新只替换 exe 与 README，不覆盖用户 data 中的配置。
 
 use std::fs;
@@ -14,25 +17,13 @@ use sha2::{Digest, Sha256};
 use crate::models::{PreparedUpdate, UpdateInfo};
 
 pub const REPO: &str = "zhanghu-god/launch-manager";
-const LATEST_RELEASE_API: &str =
-    "https://api.github.com/repos/zhanghu-god/launch-manager/releases/latest";
+const LATEST_RELEASE_URL: &str = "https://github.com/zhanghu-god/launch-manager/releases/latest";
+const DOWNLOAD_BASE: &str = "https://github.com/zhanghu-god/launch-manager/releases/download";
 const USER_AGENT: &str = "launch-manager-updater";
+const EXE_NAME: &str = "launch-manager.exe";
+const ASSET_BASE: &str = "launch-manager";
 const PORTABLE_SUFFIX: &str = "_x64-portable.zip";
-
-#[derive(Debug, Deserialize)]
-struct GithubRelease {
-    tag_name: String,
-    html_url: String,
-    assets: Vec<GithubAsset>,
-}
-
-#[derive(Debug, Deserialize)]
-struct GithubAsset {
-    name: String,
-    size: u64,
-    browser_download_url: String,
-    digest: Option<String>,
-}
+const CHECKSUMS_NAME: &str = "SHA256SUMS.txt";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,40 +39,59 @@ pub fn current_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+/// 检查最新 Release：解析重定向 tag + 读取 SHA256SUMS.txt，全程不碰 api.github.com。
 pub async fn check_update() -> Result<UpdateInfo, String> {
-    let client = http_client(Duration::from_secs(30))?;
-    let release: GithubRelease = client
-        .get(LATEST_RELEASE_API)
-        .header("Accept", "application/vnd.github+json")
+    let probe = probe_client(Duration::from_secs(30))?;
+    let resp = probe
+        .get(LATEST_RELEASE_URL)
         .send()
         .await
-        .map_err(|e| format!("检查更新失败：{e}"))?
-        .error_for_status()
-        .map_err(|e| format!("检查更新失败：{e}"))?
-        .json()
-        .await
-        .map_err(|e| format!("解析更新信息失败：{e}"))?;
-
+        .map_err(|e| format!("检查更新失败：{e}"))?;
+    let status = resp.status();
+    if !status.is_redirection() {
+        return Err(format!("检查更新失败：HTTP {status}"));
+    }
+    let location = resp
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .ok_or_else(|| "检查更新失败：缺少重定向地址".to_string())?
+        .to_str()
+        .map_err(|e| format!("检查更新失败：{e}"))?;
+    let tag = parse_tag_from_location(location)?;
+    let latest = parse_version(&tag)?;
     let current = parse_version(current_version())?;
-    let latest = parse_version(&release.tag_name)?;
-    let asset = select_asset(&release.assets)?;
-    let digest = asset
-        .digest
-        .clone()
-        .ok_or_else(|| "Release 附件缺少 SHA-256 校验值".to_string())?;
+
+    let asset_name = format!("{ASSET_BASE}_{}{PORTABLE_SUFFIX}", latest);
+    let asset_url = format!("{DOWNLOAD_BASE}/{tag}/{asset_name}");
+    let checksums_url = format!("{DOWNLOAD_BASE}/{tag}/{CHECKSUMS_NAME}");
+
+    let dl = http_client(Duration::from_secs(30))?;
+    let sums = dl
+        .get(&checksums_url)
+        .send()
+        .await
+        .map_err(|e| format!("读取校验文件失败：{e}"))?
+        .error_for_status()
+        .map_err(|e| format!("读取校验文件失败：{e}"))?
+        .text()
+        .await
+        .map_err(|e| format!("读取校验文件失败：{e}"))?;
+    let digest = parse_checksums(&sums, &asset_name)?;
 
     Ok(UpdateInfo {
         current_version: current.to_string(),
         latest_version: latest.to_string(),
         has_update: latest > current,
-        release_url: release.html_url,
-        asset_name: asset.name.clone(),
-        asset_url: asset.browser_download_url.clone(),
-        asset_size: asset.size,
+        release_url: format!("https://github.com/{REPO}/releases/tag/{tag}"),
+        asset_name,
+        asset_url,
+        checksums_url,
+        asset_size: 0,
         asset_digest: digest,
     })
 }
 
+/// 下载更新包，校验 SHA-256，解压暂存 exe 与 README，并写入元数据
 pub async fn prepare_update(data_dir: &Path, info: &UpdateInfo) -> Result<PreparedUpdate, String> {
     if !info.has_update {
         return Err("当前已是最新版本".into());
@@ -131,9 +141,9 @@ pub async fn prepare_update(data_dir: &Path, info: &UpdateInfo) -> Result<Prepar
     fs::create_dir_all(&staged_dir).map_err(|e| format!("创建更新目录失败：{e}"))?;
 
     let staged_readme = extract_update_files(&bytes, &staged_dir)?;
-    let staged_exe = staged_dir.join("launch-manager.exe");
+    let staged_exe = staged_dir.join(EXE_NAME);
     if !staged_exe.exists() {
-        return Err("更新包中未找到 launch-manager.exe".into());
+        return Err(format!("更新包中未找到 {EXE_NAME}"));
     }
 
     let meta = StagedMeta {
@@ -193,6 +203,17 @@ pub fn cleanup_leftover(data_dir: &Path) {
     }
 }
 
+/// 探测重定向的客户端：不跟随 redirect，以便读取 Location。
+fn probe_client(timeout: Duration) -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| format!("创建网络客户端失败：{e}"))
+}
+
+/// 下载客户端：跟随 redirect 到 release CDN。
 fn http_client(timeout: Duration) -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
         .user_agent(USER_AGENT)
@@ -206,16 +227,39 @@ fn parse_version(tag: &str) -> Result<Version, String> {
     Version::parse(normalized).map_err(|e| format!("无法解析版本号 {tag}：{e}"))
 }
 
-fn select_asset(assets: &[GithubAsset]) -> Result<&GithubAsset, String> {
-    assets
-        .iter()
-        .find(|asset| asset.name.ends_with(PORTABLE_SUFFIX))
-        .or_else(|| {
-            assets
-                .iter()
-                .find(|asset| asset.name.contains("portable") && asset.name.ends_with(".zip"))
-        })
-        .ok_or_else(|| "最新 Release 中没有便携 ZIP 附件".to_string())
+/// 从 releases/latest 的 Location 中解析 tag，如 /owner/repo/releases/tag/v0.2.1。
+fn parse_tag_from_location(location: &str) -> Result<String, String> {
+    const MARKER: &str = "/releases/tag/";
+    let idx = location
+        .find(MARKER)
+        .ok_or_else(|| "重定向地址中未找到 release tag".to_string())?;
+    let rest = &location[idx + MARKER.len()..];
+    let tag = rest.split(['?', '#']).next().unwrap_or(rest).trim_matches('/');
+    if tag.is_empty() {
+        return Err("重定向地址中 tag 为空".into());
+    }
+    Ok(tag.to_string())
+}
+
+/// 解析 SHA256SUMS.txt（sha256sum 风格：`<hex>  <filename>`）。
+fn parse_checksums(text: &str, asset_name: &str) -> Result<String, String> {
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut parts = line.split_whitespace();
+        let hex = parts.next().unwrap_or("");
+        let name = parts
+            .next()
+            .unwrap_or("")
+            .trim_start_matches('*')
+            .trim_start_matches("./");
+        if name == asset_name {
+            return Ok(hex.to_ascii_lowercase());
+        }
+    }
+    Err(format!("{CHECKSUMS_NAME} 中未找到 {asset_name} 的校验值"))
 }
 
 fn verify_digest(bytes: &[u8], digest: &str) -> Result<(), String> {
@@ -242,15 +286,15 @@ fn extract_update_files(bytes: &[u8], staged_dir: &Path) -> Result<Option<PathBu
             .by_index(index)
             .map_err(|e| format!("读取更新包失败：{e}"))?;
         let name = file.name().replace('\\', "/");
-        if name.ends_with("/launch-manager.exe") || name == "launch-manager.exe" {
+        if name.ends_with(&format!("/{EXE_NAME}")) || name == EXE_NAME {
             exe_index = Some(index);
         } else if name.ends_with("/README.md") || name == "README.md" {
             readme_index = Some(index);
         }
     }
 
-    let exe_index = exe_index.ok_or_else(|| "更新包中未找到 launch-manager.exe".to_string())?;
-    extract_one(&mut archive, exe_index, &staged_dir.join("launch-manager.exe"))?;
+    let exe_index = exe_index.ok_or_else(|| format!("更新包中未找到 {EXE_NAME}"))?;
+    extract_one(&mut archive, exe_index, &staged_dir.join(EXE_NAME))?;
 
     let readme_path = match readme_index {
         Some(index) => {
@@ -336,7 +380,7 @@ const UPDATE_HELPER_SCRIPT: &str = r#"param(
   [int]$ProcessId,
   [string]$StagedExe,
   [string]$TargetExe,
-  [string]$StagedReadme,
+  [string]$StagedReadme = '',
   [string]$TargetReadme,
   [string]$UpdateDir
 )
@@ -358,3 +402,50 @@ if (Test-Path -LiteralPath $meta) {
   Remove-Item -LiteralPath $meta -Force -ErrorAction SilentlyContinue
 }
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_v_prefixed_versions() {
+        assert_eq!(parse_version("v0.2.0").unwrap(), Version::new(0, 2, 0));
+        assert!(parse_version("v0.2.0").unwrap() > parse_version("0.1.0").unwrap());
+        assert!(parse_version("not-a-version").is_err());
+    }
+
+    #[test]
+    fn parses_tag_from_redirect_location() {
+        assert_eq!(
+            parse_tag_from_location(
+                "https://github.com/zhanghu-god/launch-manager/releases/tag/v0.2.1"
+            )
+            .unwrap(),
+            "v0.2.1"
+        );
+        assert_eq!(
+            parse_tag_from_location("/zhanghu-god/launch-manager/releases/tag/v0.2.1?foo=1")
+                .unwrap(),
+            "v0.2.1"
+        );
+        assert!(parse_tag_from_location("https://github.com/zhanghu-god/launch-manager").is_err());
+    }
+
+    #[test]
+    fn parses_checksums_for_asset() {
+        let sums = "aaaa  launch-manager_0.2.1_x64-portable.zip\nbbbb  README.md\n";
+        assert_eq!(
+            parse_checksums(sums, "launch-manager_0.2.1_x64-portable.zip").unwrap(),
+            "aaaa"
+        );
+        assert!(parse_checksums(sums, "missing.zip").is_err());
+    }
+
+    #[test]
+    fn verifies_sha256_digest() {
+        let bytes = b"launch update";
+        let digest = format!("sha256:{:x}", Sha256::digest(bytes));
+        assert!(verify_digest(bytes, &digest).is_ok());
+        assert!(verify_digest(bytes, "sha256:0000").is_err());
+    }
+}

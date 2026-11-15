@@ -60,4 +60,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
 ## 版本
 
-当前版本：`0.2.0`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。
+当前版本：`0.2.1`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。

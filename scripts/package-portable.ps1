@@ -28,7 +28,10 @@ try {
   New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
   Compress-Archive -LiteralPath $Stage -DestinationPath $Zip -Force
   $Hash = Get-FileHash -Algorithm SHA256 -LiteralPath $Zip
+  $Sums = Join-Path $ReleaseDir "SHA256SUMS.txt"
+  [System.IO.File]::WriteAllText($Sums, "$($Hash.Hash.ToLowerInvariant())  $(Split-Path -Leaf $Zip)`r`n", (New-Object System.Text.UTF8Encoding($false)))
   "Package: $Zip"
+  "Checksums: $Sums"
   "Size: $((Get-Item -LiteralPath $Zip).Length) bytes"
   "SHA256: $($Hash.Hash.ToLowerInvariant())"
 }
