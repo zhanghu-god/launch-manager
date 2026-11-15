@@ -24,6 +24,10 @@ pub fn save_settings(
     if saved.autostart != old.autostart || saved.autostart {
         autostart::set_enabled(saved.autostart, store.data_dir())?;
     }
+    portable_kit::logging::info(&format!(
+        "settings saved hotkey={} scan_dir={} autostart={}",
+        saved.hotkey, saved.scan_dir, saved.autostart
+    ));
     Ok(saved)
 }
 
@@ -32,7 +36,16 @@ pub fn scan_apps(store: State<'_, AppStore>) -> Result<Vec<AppEntry>, String> {
     let settings = store.settings();
     let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
     let self_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
-    scanner::scan_apps(Path::new(&settings.scan_dir), self_dir)
+    let apps = scanner::scan_apps(Path::new(&settings.scan_dir), self_dir);
+    match &apps {
+        Ok(list) => portable_kit::logging::info(&format!(
+            "scan dir={} found={}",
+            settings.scan_dir,
+            list.len()
+        )),
+        Err(e) => portable_kit::logging::error(&format!("scan failed: {e}")),
+    }
+    apps
 }
 
 #[tauri::command]
@@ -56,6 +69,12 @@ pub fn launch_app(exe_path: String, maximize: bool) -> Result<(), String> {
         );
     }
     let child = command.spawn().map_err(|e| format!("启动失败：{e}"))?;
+    portable_kit::logging::info(&format!(
+        "launch exe={} pid={} maximize={}",
+        exe_path,
+        child.id(),
+        maximize
+    ));
     if maximize {
         maximize::maximize_process_window(child.id());
     }

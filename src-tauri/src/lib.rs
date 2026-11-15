@@ -18,6 +18,13 @@ use tauri::{Emitter, Manager, WindowEvent};
 pub fn run() {
     let data_dir = storage::portable_data_dir().expect("无法定位程序目录");
     storage::configure_webview_data_dir(&data_dir).expect("无法创建便携缓存目录");
+    let log_dir = portable_kit::logging::init("launch-manager").ok();
+    portable_kit::logging::install_panic_hook();
+    portable_kit::logging::info(&format!(
+        "startup version={} exe={:?}",
+        env!("CARGO_PKG_VERSION"),
+        std::env::current_exe().ok()
+    ));
     update::cleanup_leftover(&data_dir);
     let store = AppStore::load(data_dir.clone()).expect("无法初始化本地配置");
 
@@ -41,7 +48,7 @@ pub fn run() {
             commands::hide_window,
             commands::quit_app,
         ])
-        .setup(|app| {
+        .setup(move |app| {
             let open = MenuItem::with_id(app, "open", "打开启动面板", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
@@ -83,8 +90,28 @@ pub fn run() {
                 let _ = autostart::set_enabled(true, store.data_dir());
             }
             if let Err(error) = hotkey::register(app.handle(), &settings.hotkey) {
+                portable_kit::logging::error(&format!("快捷键注册失败：{error}"));
                 eprintln!("快捷键注册失败：{error}");
             }
+            // 常驻定时清理：每小时清理自身与被管理应用超过 7 天的日志
+            let scan_dir = settings.scan_dir.clone();
+            let own_log = log_dir.clone();
+            std::thread::spawn(move || loop {
+                let mut removed = 0usize;
+                if let Some(dir) = &own_log {
+                    removed += portable_kit::logging::cleanup_old_logs(dir, 7).unwrap_or(0);
+                }
+                if let Ok(entries) = std::fs::read_dir(&scan_dir) {
+                    for entry in entries.flatten() {
+                        let logs = entry.path().join("data").join("logs");
+                        removed += portable_kit::logging::cleanup_old_logs(&logs, 7).unwrap_or(0);
+                    }
+                }
+                if removed > 0 {
+                    portable_kit::logging::info(&format!("hourly log cleanup removed={removed}"));
+                }
+                std::thread::sleep(std::time::Duration::from_secs(3600));
+            });
             Ok(())
         })
         .on_window_event(|window, event| {

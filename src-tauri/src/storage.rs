@@ -40,8 +40,14 @@ impl AppStore {
         if settings.scan_dir.trim().is_empty() {
             settings.scan_dir = default_scan_dir();
         }
+        // 旧默认热键迁移到新默认（用户自定义过的不覆盖）
+        let mut dirty = !existed;
+        if settings.hotkey == "Ctrl+Alt+Space" {
+            settings.hotkey = "Ctrl+Shift+X".into();
+            dirty = true;
+        }
         validate_settings(&settings)?;
-        if !existed {
+        if dirty {
             write_json(&settings_path, &settings)?;
         }
         Ok(Self { data_dir, settings_path, settings: Mutex::new(settings) })
@@ -116,7 +122,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("lm-store-{}", uuid::Uuid::new_v4()));
         let store = AppStore::load(dir.clone()).expect("加载配置");
         assert!(!store.settings().scan_dir.is_empty());
-        assert_eq!(store.settings().hotkey, "Ctrl+Alt+Space");
+        assert_eq!(store.settings().hotkey, "Ctrl+Shift+X");
         let mut settings = store.settings();
         settings.theme = "dark".into();
         store.update_settings(settings.clone()).expect("保存配置");

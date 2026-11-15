@@ -34,5 +34,6 @@ pub fn register(app: &AppHandle, hotkey: &str) -> Result<(), String> {
             }
         })
         .map_err(|e| format!("注册快捷键失败：{e}"))?;
+    portable_kit::logging::info(&format!("global hotkey registered: {hotkey}"));
     Ok(())
 }

@@ -1,6 +1,6 @@
 [package]
 name = "launch-manager"
-version = "0.2.2"
+version = "0.2.3"
 description = "便携软件启动管理器：托盘后台、全局快捷键、本地软件列表"
 authors = ["zhang"]
 edition = "2021"

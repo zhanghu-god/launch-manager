@@ -6,7 +6,7 @@
 
 - 默认后台运行，只显示托盘图标
 - 单实例，重复启动会唤出已有面板
-- 全局快捷键唤出启动面板，默认 `Ctrl+Alt+Space`
+- 全局快捷键唤出启动面板，默认 `Ctrl+Shift+X`
 - 扫描软件目录下的一级子目录，自动识别主 exe
 - 数字键 `1–9` 快速启动
 - `↑` / `↓` 选择，`Enter` 启动，`Esc` 隐藏
@@ -15,6 +15,7 @@
 - 设置页：软件目录、快捷键、开机自启、启动后隐藏、最大化、主题
 - 内置自动更新：启动与设置页检查 GitHub Release，下载校验后重启替换
 - 开机自启仅在当前用户启动目录创建快捷方式，不写注册表
+- 运行日志写入自身 `data/logs`（按天分文件），并每小时清理自身与被管理应用超过 7 天的日志
 - 配置保存在 exe 同级 `data` 目录
 
 ## 部署建议
@@ -37,7 +38,7 @@ C:\Users\zhang\launch\
 
 1. 解压便携 ZIP。
 2. 双击 `launch-manager.exe`，程序进入托盘后台。
-3. 按 `Ctrl+Alt+Space` 唤出启动面板。
+3. 按 `Ctrl+Shift+X` 唤出启动面板。
 4. 按编号或方向键选择软件，回车启动。
 5. 托盘菜单可打开面板、设置或退出。
 
@@ -60,4 +61,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
 ## 版本
 
-当前版本：`0.2.2`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。
+当前版本：`0.2.3`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。

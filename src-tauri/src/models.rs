@@ -15,7 +15,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             scan_dir: String::new(),
-            hotkey: "Ctrl+Alt+Space".into(),
+            hotkey: "Ctrl+Shift+X".into(),
             autostart: false,
             hide_after_launch: true,
             maximize_on_launch: true,
