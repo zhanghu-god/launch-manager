@@ -12,6 +12,7 @@
   <section id="launcher-view" class="view">
     <header class="panel-header">
       <div class="panel-title">
+        <span class="eyebrow">LAUNCHER</span>
         <h1>启动软件</h1>
         <span id="scan-dir-label" class="scan-dir"></span>
       </div>
@@ -24,53 +25,84 @@
       <strong>没有扫描到便携软件</strong>
       <span>请在设置中检查软件目录</span>
     </div>
-    <footer class="hint-bar">↑↓ 选择 · Enter 启动 · 1–9 快速启动 · Esc 隐藏</footer>
+    <footer class="hint-bar">↑↓ 选择 · Enter / 点击 启动 · 1–9 快速启动 · Esc 隐藏</footer>
   </section>
 
   <section id="settings-view" class="view" hidden>
     <header class="panel-header">
       <div class="panel-title">
+        <span class="eyebrow">SETTINGS</span>
         <h1>设置</h1>
-        <span class="scan-dir">Launch Manager</span>
       </div>
       <button id="back-launcher" class="button secondary" type="button">返回</button>
     </header>
-    <form id="settings-form" class="settings-form">
-      <label class="field">
-        <span>软件目录</span>
-        <input id="scan-dir" type="text" required>
-      </label>
-      <label class="field">
-        <span>全局快捷键</span>
-        <input id="hotkey" type="text" placeholder="Ctrl+Alt+Space" required>
-      </label>
-      <label class="check-field">
-        <input id="autostart" type="checkbox">
-        <span>开机自启（在用户启动目录创建快捷方式）</span>
-      </label>
-      <label class="check-field">
-        <input id="hide-after-launch" type="checkbox">
-        <span>启动软件后隐藏面板</span>
-      </label>
-      <label class="field">
-        <span>主题</span>
-        <select id="theme">
-          <option value="system">跟随系统</option>
-          <option value="light">浅色</option>
-          <option value="dark">深色</option>
-        </select>
-      </label>
-      <p id="settings-error" class="form-error" role="alert" hidden></p>
-      <div class="form-actions">
-        <button id="rescan-btn" class="button secondary" type="button">重新扫描</button>
-        <span class="spacer"></span>
-        <button id="save-settings" class="button primary" type="submit">保存设置</button>
+    <div class="settings-scroll">
+      <form id="settings-form" class="settings-form">
+        <label class="field">
+          <span>软件目录</span>
+          <input id="scan-dir" type="text" required>
+        </label>
+        <label class="field">
+          <span>全局快捷键</span>
+          <input id="hotkey" type="text" placeholder="Ctrl+Alt+Space" required>
+        </label>
+        <label class="check-field">
+          <input id="autostart" type="checkbox">
+          <span>开机自启（用户启动目录快捷方式）</span>
+        </label>
+        <label class="check-field">
+          <input id="hide-after-launch" type="checkbox">
+          <span>启动软件后隐藏面板</span>
+        </label>
+        <label class="check-field">
+          <input id="maximize-on-launch" type="checkbox">
+          <span>启动软件时最大化窗口（全屏）</span>
+        </label>
+        <label class="field">
+          <span>主题</span>
+          <select id="theme">
+            <option value="system">跟随系统</option>
+            <option value="light">浅色</option>
+            <option value="dark">深色</option>
+          </select>
+        </label>
+        <p id="settings-error" class="form-error" role="alert" hidden></p>
+        <div class="form-actions">
+          <button id="rescan-btn" class="button secondary" type="button">重新扫描</button>
+          <span class="spacer"></span>
+          <button id="save-settings" class="button primary" type="submit">保存设置</button>
+        </div>
+      </form>
+
+      <div class="update-card">
+        <div class="update-head">
+          <div>
+            <strong>自动更新</strong>
+            <span id="app-version" class="version-badge">v…</span>
+          </div>
+          <button id="check-update-btn" class="button secondary" type="button">检查更新</button>
+        </div>
+        <p id="update-status" class="update-status" role="status"></p>
       </div>
-    </form>
-    <div class="danger-zone">
-      <button id="quit-btn" class="button danger-ghost" type="button">退出管理器</button>
+
+      <div class="danger-zone">
+        <button id="quit-btn" class="button danger-ghost" type="button">退出管理器</button>
+      </div>
     </div>
   </section>
+
+  <dialog id="update-dialog" class="modal">
+    <div class="modal-body">
+      <h2>更新已就绪</h2>
+      <p class="confirm-text">新版本 <strong id="update-version"></strong> 已下载并通过校验。是否现在重启以完成更新？</p>
+      <p class="field-hint">选择“稍后”会保留已下载更新，下次启动时继续提示。</p>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button id="update-later-btn" class="button secondary" type="button">稍后</button>
+        <button id="update-restart-btn" class="button primary" type="button">现在重启</button>
+      </div>
+    </div>
+  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>

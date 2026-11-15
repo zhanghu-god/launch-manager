@@ -3,9 +3,11 @@
 mod autostart;
 mod commands;
 mod hotkey;
+mod maximize;
 mod models;
 mod scanner;
 mod storage;
+mod update;
 
 use storage::AppStore;
 use tauri::menu::{Menu, MenuItem};
@@ -16,6 +18,7 @@ use tauri::{Emitter, Manager, WindowEvent};
 pub fn run() {
     let data_dir = storage::portable_data_dir().expect("无法定位程序目录");
     storage::configure_webview_data_dir(&data_dir).expect("无法创建便携缓存目录");
+    update::cleanup_leftover(&data_dir);
     let store = AppStore::load(data_dir.clone()).expect("无法初始化本地配置");
 
     tauri::Builder::default()
@@ -30,6 +33,10 @@ pub fn run() {
             commands::scan_apps,
             commands::launch_app,
             commands::get_autostart,
+            commands::get_app_info,
+            commands::check_update,
+            commands::prepare_update,
+            commands::apply_update_and_restart,
             commands::show_view,
             commands::hide_window,
             commands::quit_app,
@@ -66,7 +73,7 @@ pub fn run() {
             if settings.autostart {
                 let _ = autostart::set_enabled(true, store.data_dir());
             }
-            if let Err(error) = hotkey::register(&app.handle(), &settings.hotkey) {
+            if let Err(error) = hotkey::register(app.handle(), &settings.hotkey) {
                 eprintln!("快捷键注册失败：{error}");
             }
             Ok(())

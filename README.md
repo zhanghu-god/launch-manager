@@ -11,7 +11,9 @@
 - 数字键 `1–9` 快速启动
 - `↑` / `↓` 选择，`Enter` 启动，`Esc` 隐藏
 - 鼠标点击启动
-- 设置页：软件目录、快捷键、开机自启、启动后隐藏、主题
+- 启动软件时可选最大化窗口（默认开），避免小屏下窗口超出屏幕
+- 设置页：软件目录、快捷键、开机自启、启动后隐藏、最大化、主题
+- 内置自动更新：启动与设置页检查 GitHub Release，下载校验后重启替换
 - 开机自启仅在当前用户启动目录创建快捷方式，不写注册表
 - 配置保存在 exe 同级 `data` 目录
 
@@ -58,4 +60,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
 ## 版本
 
-当前版本：`0.1.0`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。
+当前版本：`0.2.0`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。

@@ -7,6 +7,7 @@ pub struct Settings {
     pub hotkey: String,
     pub autostart: bool,
     pub hide_after_launch: bool,
+    pub maximize_on_launch: bool,
     pub theme: String,
 }
 
@@ -17,6 +18,7 @@ impl Default for Settings {
             hotkey: "Ctrl+Alt+Space".into(),
             autostart: false,
             hide_after_launch: true,
+            maximize_on_launch: true,
             theme: "system".into(),
         }
     }
@@ -29,4 +31,32 @@ pub struct AppEntry {
     pub name: String,
     pub exe_path: String,
     pub dir_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AppInfo {
+    pub version: String,
+    pub repo: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateInfo {
+    pub current_version: String,
+    pub latest_version: String,
+    pub has_update: bool,
+    pub release_url: String,
+    pub asset_name: String,
+    pub asset_url: String,
+    pub asset_size: u64,
+    pub asset_digest: String,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PreparedUpdate {
+    pub version: String,
+    pub asset_name: String,
+    pub already_staged: bool,
 }

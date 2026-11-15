@@ -2,9 +2,9 @@ use std::path::Path;
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::models::{AppEntry, Settings};
+use crate::models::{AppEntry, AppInfo, PreparedUpdate, Settings, UpdateInfo};
 use crate::storage::AppStore;
-use crate::{autostart, hotkey, scanner};
+use crate::{autostart, hotkey, maximize, scanner, update};
 
 #[tauri::command]
 pub fn get_settings(store: State<'_, AppStore>) -> Settings {
@@ -37,7 +37,7 @@ pub fn scan_apps(store: State<'_, AppStore>) -> Result<Vec<AppEntry>, String> {
 }
 
 #[tauri::command]
-pub fn launch_app(exe_path: String) -> Result<(), String> {
+pub fn launch_app(exe_path: String, maximize: bool) -> Result<(), String> {
     let path = Path::new(&exe_path);
     if !path.is_file() {
         return Err("程序文件不存在".into());
@@ -45,10 +45,42 @@ pub fn launch_app(exe_path: String) -> Result<(), String> {
     let dir = path
         .parent()
         .ok_or_else(|| "程序路径没有父目录".to_string())?;
-    std::process::Command::new(path)
+    let child = std::process::Command::new(path)
         .current_dir(dir)
         .spawn()
         .map_err(|e| format!("启动失败：{e}"))?;
+    if maximize {
+        maximize::maximize_process_window(child.id());
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_app_info() -> AppInfo {
+    AppInfo {
+        version: update::current_version().to_string(),
+        repo: update::REPO.to_string(),
+    }
+}
+
+#[tauri::command]
+pub async fn check_update() -> Result<UpdateInfo, String> {
+    update::check_update().await
+}
+
+#[tauri::command]
+pub async fn prepare_update(
+    info: UpdateInfo,
+    store: State<'_, AppStore>,
+) -> Result<PreparedUpdate, String> {
+    let data_dir = store.data_dir().to_path_buf();
+    update::prepare_update(&data_dir, &info).await
+}
+
+#[tauri::command]
+pub fn apply_update_and_restart(app: AppHandle, store: State<'_, AppStore>) -> Result<(), String> {
+    update::apply_update_and_restart(store.data_dir())?;
+    app.exit(0);
     Ok(())
 }
 

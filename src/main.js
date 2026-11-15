@@ -9,7 +9,9 @@ const state = {
   apps: [],
   selected: 0,
   settings: null,
+  appInfo: null,
   view: 'launcher',
+  updateBusy: false,
 };
 let toastTimer = null;
 
@@ -42,8 +44,14 @@ async function loadSettings() {
   $('hotkey').value = state.settings.hotkey;
   $('autostart').checked = state.settings.autostart;
   $('hide-after-launch').checked = state.settings.hideAfterLaunch;
+  $('maximize-on-launch').checked = state.settings.maximizeOnLaunch;
   $('theme').value = state.settings.theme;
   applyTheme();
+}
+
+async function loadAppInfo() {
+  state.appInfo = await requireInvoke()('get_app_info');
+  $('app-version').textContent = `v${state.appInfo.version}`;
 }
 
 async function scanApps() {
@@ -65,9 +73,9 @@ function renderList() {
   $('empty-state').hidden = state.apps.length > 0;
   state.apps.forEach((app, index) => {
     const item = document.createElement('div');
-    item.className = `app-item${index === state.selected ? ' selected' : ''}`;
+    item.className = 'app-item';
+    item.dataset.index = String(index);
     item.setAttribute('role', 'option');
-    item.setAttribute('aria-selected', String(index === state.selected));
 
     const badge = document.createElement('span');
     badge.className = 'app-badge';
@@ -83,11 +91,20 @@ function renderList() {
 
     item.append(badge, text);
     item.addEventListener('click', () => launchApp(app));
-    item.addEventListener('mouseenter', () => {
-      state.selected = index;
-      renderList();
-    });
+    item.addEventListener('mouseenter', () => setSelected(index));
     list.appendChild(item);
+  });
+  setSelected(state.selected);
+}
+
+// 只更新选中样式，不重建 DOM，避免鼠标点击因元素被替换而丢失。
+function setSelected(index) {
+  state.selected = Math.max(0, Math.min(index, state.apps.length - 1));
+  const list = $('app-list');
+  [...list.children].forEach((child, i) => {
+    const on = i === state.selected;
+    child.classList.toggle('selected', on);
+    child.setAttribute('aria-selected', String(on));
   });
   const selected = list.children[state.selected];
   if (selected) selected.scrollIntoView({ block: 'nearest' });
@@ -95,7 +112,10 @@ function renderList() {
 
 async function launchApp(app) {
   try {
-    await requireInvoke()('launch_app', { exePath: app.exePath });
+    await requireInvoke()('launch_app', {
+      exePath: app.exePath,
+      maximize: !!state.settings?.maximizeOnLaunch,
+    });
     if (state.settings?.hideAfterLaunch) await hideWindow();
   } catch (error) {
     showToast(`启动失败：${errorText(error)}`, 'error');
@@ -118,6 +138,7 @@ function setView(view) {
     scanApps();
   } else {
     loadSettings().catch((error) => showToast(`读取设置失败：${errorText(error)}`, 'error'));
+    loadAppInfo().catch(() => {});
   }
 }
 
@@ -128,6 +149,7 @@ async function saveSettings(event) {
     hotkey: $('hotkey').value.trim(),
     autostart: $('autostart').checked,
     hideAfterLaunch: $('hide-after-launch').checked,
+    maximizeOnLaunch: $('maximize-on-launch').checked,
     theme: $('theme').value,
   };
   $('settings-error').hidden = true;
@@ -142,6 +164,50 @@ async function saveSettings(event) {
   }
 }
 
+function setUpdateStatus(text, isError = false) {
+  const status = $('update-status');
+  status.textContent = text;
+  status.classList.toggle('error', isError);
+}
+
+async function checkForUpdate({ manual = false } = {}) {
+  if (state.updateBusy) return;
+  state.updateBusy = true;
+  $('check-update-btn').disabled = true;
+  setUpdateStatus('正在检查更新…');
+  try {
+    const info = await requireInvoke()('check_update');
+    if (!info.hasUpdate) {
+      setUpdateStatus(`已是最新版本 v${info.currentVersion}`);
+      if (manual) showToast('已是最新版本');
+      return;
+    }
+    setUpdateStatus(`发现新版本 v${info.latestVersion}，正在下载并校验…`);
+    const prepared = await requireInvoke()('prepare_update', { info });
+    setUpdateStatus(`新版本 v${prepared.version} 已准备好`);
+    $('update-version').textContent = `v${prepared.version}`;
+    $('update-dialog').showModal();
+  } catch (error) {
+    setUpdateStatus(`更新失败：${errorText(error)}`, true);
+    if (manual) showToast(`更新失败：${errorText(error)}`, 'error');
+  } finally {
+    state.updateBusy = false;
+    $('check-update-btn').disabled = false;
+  }
+}
+
+async function restartForUpdate() {
+  $('update-restart-btn').disabled = true;
+  $('update-later-btn').disabled = true;
+  try {
+    await requireInvoke()('apply_update_and_restart');
+  } catch (error) {
+    $('update-restart-btn').disabled = false;
+    $('update-later-btn').disabled = false;
+    showToast(`重启更新失败：${errorText(error)}`, 'error');
+  }
+}
+
 function bindEvents() {
   $('open-settings').addEventListener('click', () => setView('settings'));
   $('back-launcher').addEventListener('click', () => setView('launcher'));
@@ -151,8 +217,15 @@ function bindEvents() {
     showToast('已重新扫描');
   });
   $('quit-btn').addEventListener('click', () => requireInvoke()('quit_app'));
+  $('check-update-btn').addEventListener('click', () => checkForUpdate({ manual: true }));
+  $('update-later-btn').addEventListener('click', () => {
+    $('update-dialog').close();
+    showToast('更新已保留，可稍后重启更新');
+  });
+  $('update-restart-btn').addEventListener('click', restartForUpdate);
 
   document.addEventListener('keydown', (event) => {
+    if ($('update-dialog').open) return;
     if (event.key === 'Escape') {
       event.preventDefault();
       hideWindow();
@@ -164,12 +237,10 @@ function bindEvents() {
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      state.selected = Math.min(state.selected + 1, state.apps.length - 1);
-      renderList();
+      setSelected(state.selected + 1);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      state.selected = Math.max(state.selected - 1, 0);
-      renderList();
+      setSelected(state.selected - 1);
     } else if (event.key === 'Enter') {
       event.preventDefault();
       if (state.apps[state.selected]) launchApp(state.apps[state.selected]);
@@ -189,7 +260,9 @@ async function init() {
   applyTheme();
   try {
     await loadSettings();
+    await loadAppInfo();
     await scanApps();
+    checkForUpdate({ manual: false });
   } catch (error) {
     showToast(`初始化失败：${errorText(error)}`, 'error');
   }

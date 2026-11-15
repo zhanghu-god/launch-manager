@@ -40,7 +40,7 @@ pub fn scan_apps(scan_dir: &Path, self_dir: &Path) -> Result<Vec<AppEntry>, Stri
             });
         }
     }
-    apps.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    apps.sort_by_key(|a| a.name.to_lowercase());
     Ok(apps)
 }
 
