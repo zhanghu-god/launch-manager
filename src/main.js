@@ -59,6 +59,7 @@ async function scanApps() {
     state.apps = await requireInvoke()('scan_apps');
     state.selected = 0;
     $('scan-dir-label').textContent = state.settings?.scanDir || '';
+    $('empty-scan-dir').textContent = state.settings?.scanDir || '';
     renderList();
   } catch (error) {
     state.apps = [];
@@ -210,6 +211,14 @@ async function restartForUpdate() {
 
 function bindEvents() {
   $('open-settings').addEventListener('click', () => setView('settings'));
+  $('rescan-launcher').addEventListener('click', async () => {
+    await scanApps();
+    showToast('已重新扫描');
+  });
+  $('empty-rescan').addEventListener('click', async () => {
+    await scanApps();
+    showToast('已重新扫描');
+  });
   $('back-launcher').addEventListener('click', () => setView('launcher'));
   $('settings-form').addEventListener('submit', saveSettings);
   $('rescan-btn').addEventListener('click', async () => {

@@ -42,10 +42,20 @@ pub fn launch_app(exe_path: String, maximize: bool) -> Result<(), String> {
         return Err("程序文件不存在".into());
     }
     let dir = path.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
-    let child = std::process::Command::new(path)
-        .current_dir(dir)
-        .spawn()
-        .map_err(|e| format!("启动失败：{e}"))?;
+    let mut command = std::process::Command::new(path);
+    command.current_dir(dir);
+    // 脱离管理器进程树/作业对象：叉掉或退出管理器不会连带关闭已启动的程序。
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        const CREATE_BREAKAWAY_FROM_JOB: u32 = 0x0100_0000;
+        command.creation_flags(
+            DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_BREAKAWAY_FROM_JOB,
+        );
+    }
+    let child = command.spawn().map_err(|e| format!("启动失败：{e}"))?;
     if maximize {
         maximize::maximize_process_window(child.id());
     }

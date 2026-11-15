@@ -11,7 +11,7 @@ mod update;
 
 use storage::AppStore;
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::TrayIconBuilder;
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, WindowEvent};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -51,7 +51,18 @@ pub fn run() {
             TrayIconBuilder::new()
                 .icon(icon)
                 .menu(&menu)
-                .tooltip("Launch Manager")
+                .show_menu_on_left_click(false)
+                .tooltip("Launch Manager（左键切换面板，右键菜单）")
+                .on_tray_icon_event(|app, event| {
+                    if let TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } = event
+                    {
+                        hotkey::toggle_launcher(app.app_handle());
+                    }
+                })
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "open" => hotkey::show_launcher(app),
                     "settings" => {

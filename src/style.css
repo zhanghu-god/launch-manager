@@ -86,6 +86,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   letter-spacing: 1.6px;
 }
 .panel-title h1 { margin: 0; font-size: 19px; letter-spacing: -.2px; }
+.header-actions { display: flex; align-items: center; gap: 4px; }
 .scan-dir {
   display: block;
   margin-top: 3px;

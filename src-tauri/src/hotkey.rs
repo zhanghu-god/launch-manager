@@ -11,6 +11,17 @@ pub fn show_launcher(app: &AppHandle) {
     let _ = app.emit("show-view", "launcher");
 }
 
+/// 托盘左键 / 快捷键切换：可见则隐藏，隐藏则唤出并重扫。
+pub fn toggle_launcher(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        if window.is_visible().unwrap_or(false) {
+            let _ = window.hide();
+            return;
+        }
+    }
+    show_launcher(app);
+}
+
 pub fn register(app: &AppHandle, hotkey: &str) -> Result<(), String> {
     let shortcut: Shortcut =
         hotkey.trim().parse().map_err(|e| format!("无法解析快捷键 {hotkey}：{e}"))?;
