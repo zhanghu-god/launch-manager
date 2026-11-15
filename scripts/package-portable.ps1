@@ -15,7 +15,7 @@ if (Test-Path -LiteralPath $WsExe) { $Exe = $WsExe }
 $ReleaseDir = Join-Path $Root "release"
 $Zip = Join-Path $ReleaseDir "launch-manager_${Version}_x64-portable.zip"
 $WorkDir = Join-Path $ReleaseDir ("staging-" + [guid]::NewGuid().ToString("N"))
-$Stage = Join-Path $WorkDir "Launch Manager"
+$Stage = Join-Path $WorkDir $Config.productName
 
 try {
   if (-not $SkipBuild) {
