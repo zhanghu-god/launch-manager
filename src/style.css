@@ -1,70 +1,10 @@
-:root {
-  color-scheme: light;
-  --bg: #eef1f7;
-  --surface: #ffffff;
-  --surface-subtle: #f5f7fc;
-  --overlay: #ffffff;
-  --text: #1c2130;
-  --muted: #767e91;
-  --line: #e2e6f0;
-  --accent: #2f6fed;
-  --accent-2: #6a4ded;
-  --accent-soft: #e8effd;
-  --success: #2f9e63;
-  --warning: #d98a1f;
-  --danger: #cf4545;
-  --danger-soft: #fdecec;
-  --shadow: 0 18px 50px rgba(28, 40, 80, .18);
-  --scroll-thumb: #c6cddd;
-  --scroll-thumb-hover: #a9b3cc;
-}
+/* 设计令牌 / 重置 / 滚动条 / toast 由 shared/base.css 统一提供 */
 
-html[data-theme="dark"] {
-  color-scheme: dark;
-  --bg: #14161c;
-  --surface: #1e2129;
-  --surface-subtle: #242833;
-  --overlay: #232733;
-  --text: #e9ebf3;
-  --muted: #98a0b3;
-  --line: #343947;
-  --accent: #7fa2ff;
-  --accent-2: #a68bff;
-  --accent-soft: #2b3757;
-  --success: #58c08a;
-  --warning: #e0a44c;
-  --danger: #ff8585;
-  --danger-soft: #4b292e;
-  --shadow: 0 20px 56px rgba(0, 0, 0, .45);
-  --scroll-thumb: #3c4254;
-  --scroll-thumb-hover: #4d5570;
-}
-
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; }
 body {
-  overflow: hidden;
   background:
     radial-gradient(1200px 400px at 85% -10%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
     var(--surface);
-  color: var(--text);
-  font-family: "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
-  font-size: 14px;
 }
-button, input, select { font: inherit; }
-button { color: inherit; }
-[hidden] { display: none !important; }
-button:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-/* 自定义滚动条 */
-* { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 8px; }
-*::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
 
 .view { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .panel-header {
@@ -259,21 +199,3 @@ html[data-theme="dark"] .app-item.selected .app-badge { color: #10142a; }
 .confirm-text strong { color: var(--text); }
 .field-hint { margin: 8px 0 0; color: var(--muted); font-size: 11px; }
 .modal-actions { margin-top: 18px; display: flex; align-items: center; gap: 9px; }
-
-.toast {
-  position: fixed;
-  left: 50%;
-  bottom: 44px;
-  max-width: calc(100vw - 32px);
-  padding: 9px 15px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--overlay);
-  box-shadow: var(--shadow);
-  opacity: 0;
-  transform: translate(-50%, 10px);
-  transition: opacity .18s, transform .18s;
-  pointer-events: none;
-}
-.toast.show { opacity: 1; transform: translate(-50%, 0); }
-.toast.error { border-color: var(--danger); color: var(--danger); }

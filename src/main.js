@@ -1,9 +1,7 @@
 /* Launch Manager —— 托盘后台启动面板与设置页。 */
 
-const invoke = window.__TAURI__?.core?.invoke;
-const listen = window.__TAURI__?.event?.listen;
-const $ = (id) => document.getElementById(id);
-const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+const { invoke, listen, $, errorText, systemDark, requireInvoke } = window.PKUI;
+const showToast = (message, type) => window.PKUI.toast(message, type);
 
 const state = {
   apps: [],
@@ -13,29 +11,8 @@ const state = {
   view: 'launcher',
   updateBusy: false,
 };
-let toastTimer = null;
-
-function requireInvoke() {
-  if (!invoke) throw new Error('未检测到 Tauri 运行环境。');
-  return invoke;
-}
-
-function errorText(error) {
-  return typeof error === 'string' ? error : error?.message || String(error);
-}
-
-function showToast(message, type = 'info') {
-  clearTimeout(toastTimer);
-  const toast = $('toast');
-  toast.textContent = message;
-  toast.className = `toast show${type === 'error' ? ' error' : ''}`;
-  toastTimer = setTimeout(() => { toast.className = 'toast'; }, 2600);
-}
-
 function applyTheme() {
-  const theme = state.settings?.theme || 'system';
-  const dark = theme === 'dark' || (theme === 'system' && systemDark.matches);
-  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  window.PKUI.applyTheme(state.settings?.theme || 'system');
 }
 
 async function loadSettings() {
