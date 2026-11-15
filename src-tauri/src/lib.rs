@@ -46,10 +46,8 @@ pub fn run() {
             let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &settings, &quit])?;
-            let icon = app
-                .default_window_icon()
-                .cloned()
-                .ok_or_else(|| "缺少应用图标".to_string())?;
+            let icon =
+                app.default_window_icon().cloned().ok_or_else(|| "缺少应用图标".to_string())?;
             TrayIconBuilder::new()
                 .icon(icon)
                 .menu(&menu)

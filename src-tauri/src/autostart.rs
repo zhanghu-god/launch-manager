@@ -31,9 +31,7 @@ pub fn set_enabled(enable: bool, data_dir: &Path) -> Result<(), String> {
     }
 
     let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
-    let exe_dir = exe
-        .parent()
-        .ok_or_else(|| "程序路径没有父目录".to_string())?;
+    let exe_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
     if let Some(parent) = shortcut.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("创建启动目录失败：{e}"))?;
     }
@@ -56,9 +54,7 @@ pub fn set_enabled(enable: bool, data_dir: &Path) -> Result<(), String> {
     #[cfg(windows)]
     command.creation_flags(0x0800_0000);
 
-    let status = command
-        .status()
-        .map_err(|e| format!("执行自启脚本失败：{e}"))?;
+    let status = command.status().map_err(|e| format!("执行自启脚本失败：{e}"))?;
     if !status.success() {
         return Err("创建自启快捷方式失败".into());
     }

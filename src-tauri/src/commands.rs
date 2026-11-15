@@ -2,9 +2,10 @@ use std::path::Path;
 
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::models::{AppEntry, AppInfo, PreparedUpdate, Settings, UpdateInfo};
+use crate::models::{AppEntry, AppInfo, Settings};
 use crate::storage::AppStore;
-use crate::{autostart, hotkey, maximize, scanner, update};
+use crate::update::{self, PreparedUpdate, UpdateInfo};
+use crate::{autostart, hotkey, maximize, scanner};
 
 #[tauri::command]
 pub fn get_settings(store: State<'_, AppStore>) -> Settings {
@@ -30,9 +31,7 @@ pub fn save_settings(
 pub fn scan_apps(store: State<'_, AppStore>) -> Result<Vec<AppEntry>, String> {
     let settings = store.settings();
     let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
-    let self_dir = exe
-        .parent()
-        .ok_or_else(|| "程序路径没有父目录".to_string())?;
+    let self_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
     scanner::scan_apps(Path::new(&settings.scan_dir), self_dir)
 }
 
@@ -42,9 +41,7 @@ pub fn launch_app(exe_path: String, maximize: bool) -> Result<(), String> {
     if !path.is_file() {
         return Err("程序文件不存在".into());
     }
-    let dir = path
-        .parent()
-        .ok_or_else(|| "程序路径没有父目录".to_string())?;
+    let dir = path.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
     let child = std::process::Command::new(path)
         .current_dir(dir)
         .spawn()
@@ -57,10 +54,7 @@ pub fn launch_app(exe_path: String, maximize: bool) -> Result<(), String> {
 
 #[tauri::command]
 pub fn get_app_info() -> AppInfo {
-    AppInfo {
-        version: update::current_version().to_string(),
-        repo: update::REPO.to_string(),
-    }
+    AppInfo { version: update::current_version().to_string(), repo: update::REPO.to_string() }
 }
 
 #[tauri::command]

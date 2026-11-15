@@ -5,14 +5,8 @@ use std::path::{Path, PathBuf};
 
 use crate::models::AppEntry;
 
-const EXCLUDED_KEYWORDS: [&str; 6] = [
-    "uninstall",
-    "unins",
-    "updater",
-    "update",
-    "setup",
-    "install",
-];
+const EXCLUDED_KEYWORDS: [&str; 6] =
+    ["uninstall", "unins", "updater", "update", "setup", "install"];
 
 pub fn scan_apps(scan_dir: &Path, self_dir: &Path) -> Result<Vec<AppEntry>, String> {
     if !scan_dir.exists() {
@@ -71,10 +65,10 @@ fn find_main_exe(dir: &Path, folder_name: &str) -> Result<Option<PathBuf>, Strin
         return Ok(None);
     }
     let folder_lower = folder_name.to_lowercase();
-    if let Some(preferred) = candidates
-        .iter()
-        .find(|path| path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) == Some(folder_lower.clone()))
-    {
+    if let Some(preferred) = candidates.iter().find(|path| {
+        path.file_stem().and_then(|s| s.to_str()).map(|s| s.to_lowercase())
+            == Some(folder_lower.clone())
+    }) {
         return Ok(Some(preferred.clone()));
     }
     candidates.sort();

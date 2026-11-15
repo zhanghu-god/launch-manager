@@ -12,14 +12,10 @@ pub fn show_launcher(app: &AppHandle) {
 }
 
 pub fn register(app: &AppHandle, hotkey: &str) -> Result<(), String> {
-    let shortcut: Shortcut = hotkey
-        .trim()
-        .parse()
-        .map_err(|e| format!("无法解析快捷键 {hotkey}：{e}"))?;
+    let shortcut: Shortcut =
+        hotkey.trim().parse().map_err(|e| format!("无法解析快捷键 {hotkey}：{e}"))?;
     let manager = app.global_shortcut();
-    manager
-        .unregister_all()
-        .map_err(|e| format!("清理旧快捷键失败：{e}"))?;
+    manager.unregister_all().map_err(|e| format!("清理旧快捷键失败：{e}"))?;
     manager
         .on_shortcut(shortcut, |app, _shortcut, event| {
             if event.state() == ShortcutState::Pressed {

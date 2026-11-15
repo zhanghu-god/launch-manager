@@ -9,20 +9,8 @@ use serde::Serialize;
 
 use crate::models::Settings;
 
-pub fn portable_data_dir() -> Result<PathBuf, String> {
-    let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
-    let exe_dir = exe
-        .parent()
-        .ok_or_else(|| "程序路径没有父目录".to_string())?;
-    Ok(exe_dir.join("data"))
-}
-
-pub fn configure_webview_data_dir(data_dir: &Path) -> Result<(), String> {
-    let cache_dir = data_dir.join("cache").join("webview2");
-    fs::create_dir_all(&cache_dir).map_err(|e| format!("无法创建 WebView2 缓存目录：{e}"))?;
-    std::env::set_var("WEBVIEW2_USER_DATA_FOLDER", cache_dir);
-    Ok(())
-}
+// 便携数据隔离复用公共 crate，避免各项目重复实现。
+pub use portable_kit::portable::{configure_webview_data_dir, portable_data_dir};
 
 /// 默认扫描 exe 所在目录的上一级；部署在 launch/launch-manager 时即 launch 目录。
 pub fn default_scan_dir() -> String {
@@ -56,11 +44,7 @@ impl AppStore {
         if !existed {
             write_json(&settings_path, &settings)?;
         }
-        Ok(Self {
-            data_dir,
-            settings_path,
-            settings: Mutex::new(settings),
-        })
+        Ok(Self { data_dir, settings_path, settings: Mutex::new(settings) })
     }
 
     pub fn data_dir(&self) -> &Path {
@@ -68,19 +52,13 @@ impl AppStore {
     }
 
     pub fn settings(&self) -> Settings {
-        self.settings
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .clone()
+        self.settings.lock().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
     }
 
     pub fn update_settings(&self, settings: Settings) -> Result<Settings, String> {
         validate_settings(&settings)?;
         write_json(&self.settings_path, &settings)?;
-        *self
-            .settings
-            .lock()
-            .map_err(|_| "配置数据锁已损坏".to_string())? = settings.clone();
+        *self.settings.lock().map_err(|_| "配置数据锁已损坏".to_string())? = settings.clone();
         Ok(settings)
     }
 }
@@ -105,7 +83,8 @@ where
     if !path.exists() {
         return Ok(T::default());
     }
-    let text = fs::read_to_string(path).map_err(|e| format!("读取 {} 失败：{e}", path.display()))?;
+    let text =
+        fs::read_to_string(path).map_err(|e| format!("读取 {} 失败：{e}", path.display()))?;
     serde_json::from_str(&text).map_err(|e| format!("{} 格式错误：{e}", path.display()))
 }
 
@@ -121,10 +100,7 @@ where
         Err(first_error) if path.exists() => {
             fs::remove_file(path).map_err(|e| format!("替换 {} 失败：{e}", path.display()))?;
             fs::rename(&temp_path, path).map_err(|e| {
-                format!(
-                    "替换 {} 失败：{e}（首次错误：{first_error}）",
-                    path.display()
-                )
+                format!("替换 {} 失败：{e}（首次错误：{first_error}）", path.display())
             })
         }
         Err(e) => Err(format!("保存 {} 失败：{e}", path.display())),

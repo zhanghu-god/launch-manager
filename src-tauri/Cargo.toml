@@ -17,19 +17,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-single-instance = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-uuid = { version = "1", features = ["v4"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
-zip = { version = "2", default-features = false, features = ["deflate"] }
-sha2 = "0.10"
-semver = "1"
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+portable-kit.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
-
-[profile.release]
-codegen-units = 1
-lto = true
-opt-level = "s"
-strip = true
