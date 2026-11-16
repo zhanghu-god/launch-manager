@@ -142,14 +142,14 @@ pub fn quit_app(app: AppHandle, store: State<'_, AppStore>) {
 
 // ---------- WebDAV 云备份 / 数据导入导出 ----------
 
-fn app_name_and_data(dir_path: &str) -> Result<(String, std::path::PathBuf), String> {
-    let p = Path::new(dir_path);
-    let name = p
-        .file_name()
-        .ok_or_else(|| "无法识别软件目录名".to_string())?
-        .to_string_lossy()
-        .into_owned();
-    Ok((name, p.join("data")))
+/// 远端同步键 = 主 exe 主名（小写），与各 app 自带同步的固定键一致，
+/// 保证管理器备份与 app 自身同步写入同一远端目录，云盘只留一份数据。
+fn exe_key(path: &Path) -> String {
+    path.file_stem().and_then(|s| s.to_str()).unwrap_or("app").to_lowercase()
+}
+
+fn data_of(dir_path: &str) -> Result<std::path::PathBuf, String> {
+    Ok(Path::new(dir_path).join("data"))
 }
 
 /// 管理器自身的目录与名称（扫描器排除自身，需单独纳入备份/导入导出）。
@@ -181,11 +181,11 @@ pub fn backup_all_with(cfg: &WebDavConfig, scan_dir: &str) -> Result<Vec<BackupR
     let self_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
     let apps = scanner::scan_apps(Path::new(scan_dir), self_dir)?;
     let mut reports = Vec::new();
-    // 管理器自身配置也需同步
-    let (self_name, self_dir) = self_dir_and_name()?;
+    // 管理器自身配置也需同步（键=自身 exe 主名）
+    let (_self_name, self_dir) = self_dir_and_name()?;
     let self_data = self_dir.join("data");
     if self_data.exists() {
-        let r = webdav::backup_app(cfg, &self_name, &self_data)?;
+        let r = webdav::backup_app(cfg, &exe_key(&exe), &self_data)?;
         portable_kit::logging::info(&format!(
             "webdav backup app={} uploaded={} skipped={} removed={}",
             r.app, r.uploaded, r.skipped, r.removed
@@ -195,7 +195,7 @@ pub fn backup_all_with(cfg: &WebDavConfig, scan_dir: &str) -> Result<Vec<BackupR
     for app in apps {
         let data = Path::new(&app.dir_path).join("data");
         if data.exists() {
-            let r = webdav::backup_app(cfg, &app.name, &data)?;
+            let r = webdav::backup_app(cfg, &exe_key(Path::new(&app.exe_path)), &data)?;
             portable_kit::logging::info(&format!(
                 "webdav backup app={} uploaded={} skipped={} removed={}",
                 r.app, r.uploaded, r.skipped, r.removed
@@ -243,11 +243,12 @@ pub fn webdav_backup_all(store: State<'_, AppStore>) -> Result<Vec<BackupReport>
 #[tauri::command]
 pub fn webdav_restore_app(
     store: State<'_, AppStore>,
+    app_key: String,
     dir_path: String,
 ) -> Result<RestoreReport, String> {
     let cfg = webdav_cfg(&store)?;
-    let (name, data) = app_name_and_data(&dir_path)?;
-    let r = webdav::restore_app(&cfg, &name, &data)?;
+    let data = data_of(&dir_path)?;
+    let r = webdav::restore_app(&cfg, &app_key, &data)?;
     portable_kit::logging::info(&format!(
         "webdav restore app={} downloaded={}",
         r.app, r.downloaded
@@ -256,20 +257,20 @@ pub fn webdav_restore_app(
 }
 
 #[tauri::command]
-pub fn export_app_data(dir_path: String, path: String) -> Result<(), String> {
-    let (name, data) = app_name_and_data(&dir_path)?;
-    let value = dataio::export_app(&name, &data)?;
+pub fn export_app_data(app_key: String, dir_path: String, path: String) -> Result<(), String> {
+    let data = data_of(&dir_path)?;
+    let value = dataio::export_app(&app_key, &data)?;
     let text = serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?;
     std::fs::write(&path, text).map_err(|e| format!("写入导出文件失败：{e}"))?;
-    portable_kit::logging::info(&format!("export app={} to={}", name, path));
+    portable_kit::logging::info(&format!("export app={} to={}", app_key, path));
     Ok(())
 }
 
 #[tauri::command]
-pub fn import_app_data(dir_path: String, path: String) -> Result<ImportReport, String> {
-    let (name, data) = app_name_and_data(&dir_path)?;
+pub fn import_app_data(app_key: String, dir_path: String, path: String) -> Result<ImportReport, String> {
+    let data = data_of(&dir_path)?;
     let value = dataio::read_envelope(Path::new(&path))?;
-    let r = dataio::import_app(&value, &name, &data)?;
-    portable_kit::logging::info(&format!("import app={} written={}", name, r.written));
+    let r = dataio::import_app(&value, &app_key, &data)?;
+    portable_kit::logging::info(&format!("import app={} written={}", app_key, r.written));
     Ok(r)
 }

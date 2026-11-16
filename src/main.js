@@ -245,7 +245,7 @@ async function exportApp(app) {
       filters: [{ name: 'JSON 数据', extensions: ['json'] }],
     });
     if (!path) return;
-    await requireInvoke()('export_app_data', { dirPath: app.dirPath, path });
+    await requireInvoke()('export_app_data', { appKey: appKey(app), dirPath: app.dirPath, path });
     showToast(`已导出 ${app.name}`);
   } catch (error) {
     showToast(`导出失败：${errorText(error)}`, 'error');
@@ -259,7 +259,7 @@ async function importApp(app) {
       filters: [{ name: 'JSON 数据', extensions: ['json'] }],
     });
     if (!path) return;
-    const report = await requireInvoke()('import_app_data', { dirPath: app.dirPath, path });
+    const report = await requireInvoke()('import_app_data', { appKey: appKey(app), dirPath: app.dirPath, path });
     showToast(`已导入 ${report.written} 个文件，旧数据已备份${app.id === 'self' ? '，重启管理器后生效' : ''}`);
   } catch (error) {
     showToast(`导入失败：${errorText(error)}`, 'error');
@@ -270,7 +270,7 @@ async function restoreApp(app) {
   try {
     const ok = await dialog.confirm(`从 WebDAV 恢复 ${app.name} 的数据？现有数据会先自动备份。`, { title: '云恢复' });
     if (!ok) return;
-    const report = await requireInvoke()('webdav_restore_app', { dirPath: app.dirPath });
+    const report = await requireInvoke()('webdav_restore_app', { appKey: appKey(app), dirPath: app.dirPath });
     showToast(`已恢复 ${report.downloaded} 个文件，旧数据已备份${app.id === 'self' ? '，重启管理器后生效' : ''}`);
   } catch (error) {
     showToast(`云恢复失败：${errorText(error)}`, 'error');
@@ -281,6 +281,12 @@ function setWdStatus(text, isError = false) {
   const el = $('wd-status');
   el.textContent = text;
   el.classList.toggle('error', isError);
+}
+
+// 远端同步键 = 主 exe 主名（小写），与后端 exe_key 及各 app 自带同步键一致。
+function appKey(app) {
+  const base = (app.exePath || '').split(/[\\/]/).pop() || '';
+  return base.replace(/\.exe$/i, '').toLowerCase();
 }
 
 async function webdavTest() {
