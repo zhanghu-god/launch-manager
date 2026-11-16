@@ -91,7 +91,8 @@ where
     }
     let text =
         fs::read_to_string(path).map_err(|e| format!("读取 {} 失败：{e}", path.display()))?;
-    serde_json::from_str(&text).map_err(|e| format!("{} 格式错误：{e}", path.display()))
+    let text = text.trim_start_matches('\u{feff}');
+    serde_json::from_str(text).map_err(|e| format!("{} 格式错误：{e}", path.display()))
 }
 
 fn write_json<T>(path: &Path, value: &T) -> Result<(), String>

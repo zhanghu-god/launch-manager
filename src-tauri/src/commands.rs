@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use crate::models::{AppEntry, AppInfo, Settings};
 use crate::storage::AppStore;
 use crate::update::{self, PreparedUpdate, UpdateInfo};
-use crate::{autostart, hotkey, maximize, scanner};
+use crate::{autostart, desktop_icons, hotkey, maximize, scanner};
 use portable_kit::dataio::{self, ImportReport};
 use portable_kit::webdav::{self, BackupReport, RestoreReport, WebDavConfig};
 
@@ -26,11 +26,19 @@ pub fn save_settings(
     if saved.autostart != old.autostart || saved.autostart {
         autostart::set_enabled(saved.autostart, store.data_dir())?;
     }
+    desktop_icons::set_enabled(saved.desktop_double_click_icons);
     portable_kit::logging::info(&format!(
         "settings saved hotkey={} scan_dir={} autostart={}",
         saved.hotkey, saved.scan_dir, saved.autostart
     ));
     Ok(saved)
+}
+
+#[tauri::command]
+pub fn toggle_desktop_icons() -> Result<bool, String> {
+    let hidden = desktop_icons::toggle_icons()?;
+    portable_kit::logging::info(&format!("desktop icons toggled hidden={hidden}"));
+    Ok(hidden)
 }
 
 #[tauri::command]
@@ -267,7 +275,11 @@ pub fn export_app_data(app_key: String, dir_path: String, path: String) -> Resul
 }
 
 #[tauri::command]
-pub fn import_app_data(app_key: String, dir_path: String, path: String) -> Result<ImportReport, String> {
+pub fn import_app_data(
+    app_key: String,
+    dir_path: String,
+    path: String,
+) -> Result<ImportReport, String> {
     let data = data_of(&dir_path)?;
     let value = dataio::read_envelope(Path::new(&path))?;
     let r = dataio::import_app(&value, &app_key, &data)?;

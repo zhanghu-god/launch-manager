@@ -23,6 +23,7 @@ async function loadSettings() {
   $('autostart').checked = state.settings.autostart;
   $('hide-after-launch').checked = state.settings.hideAfterLaunch;
   $('maximize-on-launch').checked = state.settings.maximizeOnLaunch;
+  $('desktop-icons-double-click').checked = !!state.settings.desktopDoubleClickIcons;
   $('theme').value = state.settings.theme;
   const w = state.settings.webdav || {};
   $('wd-enabled').checked = !!w.enabled;
@@ -136,6 +137,7 @@ async function saveSettings(event) {
     autostart: $('autostart').checked,
     hideAfterLaunch: $('hide-after-launch').checked,
     maximizeOnLaunch: $('maximize-on-launch').checked,
+    desktopDoubleClickIcons: $('desktop-icons-double-click').checked,
     theme: $('theme').value,
     webdav: {
       enabled: $('wd-enabled').checked,
@@ -325,6 +327,14 @@ function bindEvents() {
   });
   $('back-launcher').addEventListener('click', () => setView('launcher'));
   $('settings-form').addEventListener('submit', saveSettings);
+  $('toggle-desktop-icons').addEventListener('click', async () => {
+    try {
+      const hidden = await requireInvoke()('toggle_desktop_icons');
+      showToast(hidden ? '已隐藏桌面图标' : '已显示桌面图标');
+    } catch (error) {
+      showToast(`切换桌面图标失败：${errorText(error)}`, 'error');
+    }
+  });
   $('rescan-btn').addEventListener('click', async () => {
     await scanApps();
     showToast('已重新扫描');

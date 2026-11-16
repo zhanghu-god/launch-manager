@@ -32,6 +32,8 @@ pub struct Settings {
     pub maximize_on_launch: bool,
     pub theme: String,
     #[serde(default)]
+    pub desktop_double_click_icons: bool,
+    #[serde(default)]
     pub webdav: WebDavSettings,
 }
 
@@ -44,6 +46,7 @@ impl Default for Settings {
             hide_after_launch: true,
             maximize_on_launch: true,
             theme: "system".into(),
+            desktop_double_click_icons: false,
             webdav: WebDavSettings::default(),
         }
     }

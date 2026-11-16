@@ -2,6 +2,7 @@
 
 mod autostart;
 mod commands;
+mod desktop_icons;
 mod hotkey;
 mod maximize;
 mod models;
@@ -54,12 +55,14 @@ pub fn run() {
             commands::list_data_apps,
             commands::export_app_data,
             commands::import_app_data,
+            commands::toggle_desktop_icons,
         ])
         .setup(move |app| {
             let open = MenuItem::with_id(app, "open", "打开启动面板", true, None::<&str>)?;
+            let icons = MenuItem::with_id(app, "icons", "显示/隐藏桌面图标", true, None::<&str>)?;
             let settings = MenuItem::with_id(app, "settings", "设置", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &settings, &quit])?;
+            let menu = Menu::with_items(app, &[&open, &icons, &settings, &quit])?;
             let icon =
                 app.default_window_icon().cloned().ok_or_else(|| "缺少应用图标".to_string())?;
             TrayIconBuilder::new()
@@ -79,6 +82,17 @@ pub fn run() {
                 })
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "open" => hotkey::show_launcher(app),
+                    "icons" => match desktop_icons::toggle_icons() {
+                        Ok(hidden) => {
+                            portable_kit::logging::info(&format!(
+                                "desktop icons toggled hidden={hidden}"
+                            ));
+                            let _ = app.emit("desktop-icons-toggled", hidden);
+                        }
+                        Err(error) => portable_kit::logging::warn(&format!(
+                            "desktop icons toggle failed: {error}"
+                        )),
+                    },
                     "settings" => {
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
@@ -93,6 +107,7 @@ pub fn run() {
 
             let store = app.state::<AppStore>();
             let settings = store.settings();
+            desktop_icons::init(app.handle().clone(), settings.desktop_double_click_icons);
             if settings.autostart {
                 let _ = autostart::set_enabled(true, store.data_dir());
             }

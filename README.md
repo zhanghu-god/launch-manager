@@ -18,6 +18,7 @@
 - 运行日志写入自身 `data/logs`（按天分文件），并每小时清理自身与被管理应用超过 7 天的日志
 - WebDAV 云备份：统一配置一套服务器/账号，每小时 + 退出时自动增量备份所有被管理软件及**管理器自身**的 `data/`，可测试连接/立即备份/按软件云恢复
 - 数据导入/导出：每个软件可导出为单个 JSON 文件、从 JSON 导入；导入/恢复前自动备份现有数据
+- 桌面图标：托盘菜单或 `Ctrl+Alt+I` 显示/隐藏；设置页可选“双击桌面空白处切换”（全局鼠标钩子，默认关）
 - 配置保存在 exe 同级 `data` 目录
 
 ## 部署建议
@@ -63,4 +64,4 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/package-portable.ps1
 
 ## 版本
 
-当前版本：`0.2.6`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。
+当前版本：`0.2.8`。版本号同步维护在 `src-tauri/Cargo.toml` 和 `src-tauri/tauri.conf.json`。
