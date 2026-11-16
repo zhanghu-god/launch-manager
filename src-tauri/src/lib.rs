@@ -51,6 +51,7 @@ pub fn run() {
             commands::webdav_test,
             commands::webdav_backup_all,
             commands::webdav_restore_app,
+            commands::list_data_apps,
             commands::export_app_data,
             commands::import_app_data,
         ])

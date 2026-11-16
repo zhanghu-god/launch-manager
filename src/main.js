@@ -204,7 +204,7 @@ async function restartForUpdate() {
 async function renderDataList() {
   const list = $('data-app-list');
   list.replaceChildren();
-  const apps = await requireInvoke()('scan_apps');
+  const apps = await requireInvoke()('list_data_apps');
   if (!apps.length) {
     const empty = document.createElement('p');
     empty.className = 'field-hint';
@@ -216,7 +216,7 @@ async function renderDataList() {
     const row = document.createElement('div');
     row.className = 'data-row';
     const name = document.createElement('strong');
-    name.textContent = app.name;
+    name.textContent = app.id === 'self' ? `${app.name}（自身配置）` : app.name;
     const actions = document.createElement('div');
     actions.className = 'header-actions';
     actions.append(
@@ -260,7 +260,7 @@ async function importApp(app) {
     });
     if (!path) return;
     const report = await requireInvoke()('import_app_data', { dirPath: app.dirPath, path });
-    showToast(`已导入 ${report.written} 个文件，旧数据已备份`);
+    showToast(`已导入 ${report.written} 个文件，旧数据已备份${app.id === 'self' ? '，重启管理器后生效' : ''}`);
   } catch (error) {
     showToast(`导入失败：${errorText(error)}`, 'error');
   }
@@ -271,7 +271,7 @@ async function restoreApp(app) {
     const ok = await dialog.confirm(`从 WebDAV 恢复 ${app.name} 的数据？现有数据会先自动备份。`, { title: '云恢复' });
     if (!ok) return;
     const report = await requireInvoke()('webdav_restore_app', { dirPath: app.dirPath });
-    showToast(`已恢复 ${report.downloaded} 个文件，旧数据已备份`);
+    showToast(`已恢复 ${report.downloaded} 个文件，旧数据已备份${app.id === 'self' ? '，重启管理器后生效' : ''}`);
   } catch (error) {
     showToast(`云恢复失败：${errorText(error)}`, 'error');
   }

@@ -152,6 +152,18 @@ fn app_name_and_data(dir_path: &str) -> Result<(String, std::path::PathBuf), Str
     Ok((name, p.join("data")))
 }
 
+/// 管理器自身的目录与名称（扫描器排除自身，需单独纳入备份/导入导出）。
+fn self_dir_and_name() -> Result<(String, std::path::PathBuf), String> {
+    let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
+    let dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
+    let name = dir
+        .file_name()
+        .ok_or_else(|| "无法识别自身目录名".to_string())?
+        .to_string_lossy()
+        .into_owned();
+    Ok((name, dir.to_path_buf()))
+}
+
 fn webdav_cfg(store: &AppStore) -> Result<WebDavConfig, String> {
     let w = store.settings().webdav;
     if !w.enabled {
@@ -169,6 +181,17 @@ pub fn backup_all_with(cfg: &WebDavConfig, scan_dir: &str) -> Result<Vec<BackupR
     let self_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
     let apps = scanner::scan_apps(Path::new(scan_dir), self_dir)?;
     let mut reports = Vec::new();
+    // 管理器自身配置也需同步
+    let (self_name, self_dir) = self_dir_and_name()?;
+    let self_data = self_dir.join("data");
+    if self_data.exists() {
+        let r = webdav::backup_app(cfg, &self_name, &self_data)?;
+        portable_kit::logging::info(&format!(
+            "webdav backup app={} uploaded={} skipped={} removed={}",
+            r.app, r.uploaded, r.skipped, r.removed
+        ));
+        reports.push(r);
+    }
     for app in apps {
         let data = Path::new(&app.dir_path).join("data");
         if data.exists() {
@@ -181,6 +204,25 @@ pub fn backup_all_with(cfg: &WebDavConfig, scan_dir: &str) -> Result<Vec<BackupR
         }
     }
     Ok(reports)
+}
+
+#[tauri::command]
+pub fn list_data_apps(store: State<'_, AppStore>) -> Result<Vec<AppEntry>, String> {
+    let settings = store.settings();
+    let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
+    let self_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
+    let mut apps = scanner::scan_apps(Path::new(&settings.scan_dir), self_dir)?;
+    let (name, dir) = self_dir_and_name()?;
+    apps.insert(
+        0,
+        AppEntry {
+            id: "self".into(),
+            name,
+            exe_path: exe.to_string_lossy().into_owned(),
+            dir_path: dir.to_string_lossy().into_owned(),
+        },
+    );
+    Ok(apps)
 }
 
 #[tauri::command]
