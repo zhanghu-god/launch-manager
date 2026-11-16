@@ -6,6 +6,8 @@ use crate::models::{AppEntry, AppInfo, Settings};
 use crate::storage::AppStore;
 use crate::update::{self, PreparedUpdate, UpdateInfo};
 use crate::{autostart, hotkey, maximize, scanner};
+use portable_kit::dataio::{self, ImportReport};
+use portable_kit::webdav::{self, BackupReport, RestoreReport, WebDavConfig};
 
 #[tauri::command]
 pub fn get_settings(store: State<'_, AppStore>) -> Settings {
@@ -129,6 +131,103 @@ pub fn hide_window(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn quit_app(app: AppHandle) {
+pub fn quit_app(app: AppHandle, store: State<'_, AppStore>) {
+    // 退出前 best-effort 云备份，不阻塞退出
+    if let Ok(cfg) = webdav_cfg(&store) {
+        let settings = store.settings();
+        let _ = backup_all_with(&cfg, &settings.scan_dir);
+    }
     app.exit(0);
+}
+
+// ---------- WebDAV 云备份 / 数据导入导出 ----------
+
+fn app_name_and_data(dir_path: &str) -> Result<(String, std::path::PathBuf), String> {
+    let p = Path::new(dir_path);
+    let name = p
+        .file_name()
+        .ok_or_else(|| "无法识别软件目录名".to_string())?
+        .to_string_lossy()
+        .into_owned();
+    Ok((name, p.join("data")))
+}
+
+fn webdav_cfg(store: &AppStore) -> Result<WebDavConfig, String> {
+    let w = store.settings().webdav;
+    if !w.enabled {
+        return Err("未启用 WebDAV 云备份".into());
+    }
+    if w.url.trim().is_empty() {
+        return Err("未配置 WebDAV 地址".into());
+    }
+    Ok(WebDavConfig { url: w.url, username: w.username, password: w.password, root: w.root })
+}
+
+/// 扫描所有 app 并增量备份其 data 目录（供命令/退出/定时线程复用）。
+pub fn backup_all_with(cfg: &WebDavConfig, scan_dir: &str) -> Result<Vec<BackupReport>, String> {
+    let exe = std::env::current_exe().map_err(|e| format!("无法获取程序路径：{e}"))?;
+    let self_dir = exe.parent().ok_or_else(|| "程序路径没有父目录".to_string())?;
+    let apps = scanner::scan_apps(Path::new(scan_dir), self_dir)?;
+    let mut reports = Vec::new();
+    for app in apps {
+        let data = Path::new(&app.dir_path).join("data");
+        if data.exists() {
+            let r = webdav::backup_app(cfg, &app.name, &data)?;
+            portable_kit::logging::info(&format!(
+                "webdav backup app={} uploaded={} skipped={} removed={}",
+                r.app, r.uploaded, r.skipped, r.removed
+            ));
+            reports.push(r);
+        }
+    }
+    Ok(reports)
+}
+
+#[tauri::command]
+pub fn webdav_test(store: State<'_, AppStore>) -> Result<String, String> {
+    let cfg = webdav_cfg(&store)?;
+    webdav::test_connection(&cfg)?;
+    portable_kit::logging::info("webdav connection ok");
+    Ok("连接成功".into())
+}
+
+#[tauri::command]
+pub fn webdav_backup_all(store: State<'_, AppStore>) -> Result<Vec<BackupReport>, String> {
+    let cfg = webdav_cfg(&store)?;
+    let settings = store.settings();
+    backup_all_with(&cfg, &settings.scan_dir)
+}
+
+#[tauri::command]
+pub fn webdav_restore_app(
+    store: State<'_, AppStore>,
+    dir_path: String,
+) -> Result<RestoreReport, String> {
+    let cfg = webdav_cfg(&store)?;
+    let (name, data) = app_name_and_data(&dir_path)?;
+    let r = webdav::restore_app(&cfg, &name, &data)?;
+    portable_kit::logging::info(&format!(
+        "webdav restore app={} downloaded={}",
+        r.app, r.downloaded
+    ));
+    Ok(r)
+}
+
+#[tauri::command]
+pub fn export_app_data(dir_path: String, path: String) -> Result<(), String> {
+    let (name, data) = app_name_and_data(&dir_path)?;
+    let value = dataio::export_app(&name, &data)?;
+    let text = serde_json::to_string_pretty(&value).map_err(|e| e.to_string())?;
+    std::fs::write(&path, text).map_err(|e| format!("写入导出文件失败：{e}"))?;
+    portable_kit::logging::info(&format!("export app={} to={}", name, path));
+    Ok(())
+}
+
+#[tauri::command]
+pub fn import_app_data(dir_path: String, path: String) -> Result<ImportReport, String> {
+    let (name, data) = app_name_and_data(&dir_path)?;
+    let value = dataio::read_envelope(Path::new(&path))?;
+    let r = dataio::import_app(&value, &name, &data)?;
+    portable_kit::logging::info(&format!("import app={} written={}", name, r.written));
+    Ok(r)
 }

@@ -75,6 +75,29 @@
             <option value="dark">深色</option>
           </select>
         </label>
+        <fieldset class="webdav-fields">
+          <legend>WebDAV 云备份</legend>
+          <label class="check-field">
+            <input id="wd-enabled" type="checkbox">
+            <span>启用云备份（每小时 + 退出时自动增量备份）</span>
+          </label>
+          <label class="field">
+            <span>服务器地址</span>
+            <input id="wd-url" type="text" placeholder="https://dav.example.com/dav">
+          </label>
+          <label class="field">
+            <span>账号</span>
+            <input id="wd-username" type="text" autocomplete="username">
+          </label>
+          <label class="field">
+            <span>密码</span>
+            <input id="wd-password" type="password" autocomplete="current-password">
+          </label>
+          <label class="field">
+            <span>远端根目录</span>
+            <input id="wd-root" type="text" placeholder="rust-apps">
+          </label>
+        </fieldset>
         <p id="settings-error" class="form-error" role="alert" hidden></p>
         <div class="form-actions">
           <button id="rescan-btn" class="button secondary" type="button">重新扫描</button>
@@ -92,6 +115,25 @@
           <button id="check-update-btn" class="button secondary" type="button">检查更新</button>
         </div>
         <p id="update-status" class="update-status" role="status"></p>
+      </div>
+
+      <div class="update-card">
+        <div class="update-head">
+          <strong>云备份操作</strong>
+          <div class="header-actions">
+            <button id="wd-test-btn" class="button secondary" type="button">测试连接</button>
+            <button id="wd-backup-btn" class="button primary" type="button">立即备份全部</button>
+          </div>
+        </div>
+        <p id="wd-status" class="update-status" role="status"></p>
+      </div>
+
+      <div class="update-card">
+        <div class="update-head">
+          <strong>数据导入 / 导出 / 云恢复</strong>
+        </div>
+        <div id="data-app-list" class="data-app-list"></div>
+        <p class="field-hint">导出为单个 JSON 文件；导入 / 云恢复前自动备份现有数据到 data/restore-backup-*。</p>
       </div>
 
       <div class="danger-zone">

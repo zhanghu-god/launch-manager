@@ -33,6 +33,7 @@ pub fn run() {
             hotkey::show_launcher(app);
         }))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(store)
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
@@ -47,6 +48,11 @@ pub fn run() {
             commands::show_view,
             commands::hide_window,
             commands::quit_app,
+            commands::webdav_test,
+            commands::webdav_backup_all,
+            commands::webdav_restore_app,
+            commands::export_app_data,
+            commands::import_app_data,
         ])
         .setup(move |app| {
             let open = MenuItem::with_id(app, "open", "打开启动面板", true, None::<&str>)?;
@@ -79,7 +85,7 @@ pub fn run() {
                         }
                         let _ = app.emit("show-view", "settings");
                     }
-                    "quit" => app.exit(0),
+                    "quit" => commands::quit_app(app.clone(), app.state::<AppStore>()),
                     _ => {}
                 })
                 .build(app)?;
@@ -93,8 +99,9 @@ pub fn run() {
                 portable_kit::logging::error(&format!("快捷键注册失败：{error}"));
                 eprintln!("快捷键注册失败：{error}");
             }
-            // 常驻定时清理：每小时清理自身与被管理应用超过 7 天的日志
+            // 常驻定时任务：每小时清理过期日志 + （启用时）WebDAV 增量云备份
             let scan_dir = settings.scan_dir.clone();
+            let wd = settings.webdav.clone();
             let own_log = log_dir.clone();
             std::thread::spawn(move || loop {
                 let mut removed = 0usize;
@@ -109,6 +116,23 @@ pub fn run() {
                 }
                 if removed > 0 {
                     portable_kit::logging::info(&format!("hourly log cleanup removed={removed}"));
+                }
+                if wd.enabled && !wd.url.trim().is_empty() {
+                    let cfg = portable_kit::webdav::WebDavConfig {
+                        url: wd.url.clone(),
+                        username: wd.username.clone(),
+                        password: wd.password.clone(),
+                        root: wd.root.clone(),
+                    };
+                    match commands::backup_all_with(&cfg, &scan_dir) {
+                        Ok(reports) => portable_kit::logging::info(&format!(
+                            "hourly webdav backup apps={}",
+                            reports.len()
+                        )),
+                        Err(e) => portable_kit::logging::warn(&format!(
+                            "hourly webdav backup failed: {e}"
+                        )),
+                    }
                 }
                 std::thread::sleep(std::time::Duration::from_secs(3600));
             });

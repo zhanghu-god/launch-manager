@@ -2,6 +2,28 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+pub struct WebDavSettings {
+    pub enabled: bool,
+    pub url: String,
+    pub username: String,
+    pub password: String,
+    pub root: String,
+}
+
+impl Default for WebDavSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            url: String::new(),
+            username: String::new(),
+            password: String::new(),
+            root: "rust-apps".into(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Settings {
     pub scan_dir: String,
     pub hotkey: String,
@@ -9,6 +31,8 @@ pub struct Settings {
     pub hide_after_launch: bool,
     pub maximize_on_launch: bool,
     pub theme: String,
+    #[serde(default)]
+    pub webdav: WebDavSettings,
 }
 
 impl Default for Settings {
@@ -20,6 +44,7 @@ impl Default for Settings {
             hide_after_launch: true,
             maximize_on_launch: true,
             theme: "system".into(),
+            webdav: WebDavSettings::default(),
         }
     }
 }

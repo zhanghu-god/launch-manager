@@ -183,6 +183,35 @@ html[data-theme="dark"] .app-item.selected .app-badge { color: #10142a; }
 .update-status.error { color: var(--danger); }
 .danger-zone { padding: 4px 18px 16px; }
 
+.webdav-fields {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.webdav-fields legend {
+  padding: 0 6px;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.data-app-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.data-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.data-row strong { font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-row .button { min-height: 28px; padding: 3px 10px; font-size: 12px; }
+
 .modal {
   width: min(420px, calc(100vw - 32px));
   padding: 0;

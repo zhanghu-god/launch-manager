@@ -2,6 +2,7 @@
 
 const { invoke, listen, $, errorText, systemDark, requireInvoke } = window.PKUI;
 const showToast = (message, type) => window.PKUI.toast(message, type);
+const dialog = window.__TAURI__?.dialog;
 
 const state = {
   apps: [],
@@ -23,6 +24,12 @@ async function loadSettings() {
   $('hide-after-launch').checked = state.settings.hideAfterLaunch;
   $('maximize-on-launch').checked = state.settings.maximizeOnLaunch;
   $('theme').value = state.settings.theme;
+  const w = state.settings.webdav || {};
+  $('wd-enabled').checked = !!w.enabled;
+  $('wd-url').value = w.url || '';
+  $('wd-username').value = w.username || '';
+  $('wd-password').value = w.password || '';
+  $('wd-root').value = w.root || 'rust-apps';
   applyTheme();
 }
 
@@ -117,6 +124,7 @@ function setView(view) {
   } else {
     loadSettings().catch((error) => showToast(`读取设置失败：${errorText(error)}`, 'error'));
     loadAppInfo().catch(() => {});
+    renderDataList().catch(() => {});
   }
 }
 
@@ -129,6 +137,13 @@ async function saveSettings(event) {
     hideAfterLaunch: $('hide-after-launch').checked,
     maximizeOnLaunch: $('maximize-on-launch').checked,
     theme: $('theme').value,
+    webdav: {
+      enabled: $('wd-enabled').checked,
+      url: $('wd-url').value.trim(),
+      username: $('wd-username').value.trim(),
+      password: $('wd-password').value,
+      root: $('wd-root').value.trim() || 'rust-apps',
+    },
   };
   $('settings-error').hidden = true;
   try {
@@ -186,8 +201,114 @@ async function restartForUpdate() {
   }
 }
 
+async function renderDataList() {
+  const list = $('data-app-list');
+  list.replaceChildren();
+  const apps = await requireInvoke()('scan_apps');
+  if (!apps.length) {
+    const empty = document.createElement('p');
+    empty.className = 'field-hint';
+    empty.textContent = '没有扫描到软件，请先在上方配置软件目录。';
+    list.appendChild(empty);
+    return;
+  }
+  apps.forEach((app) => {
+    const row = document.createElement('div');
+    row.className = 'data-row';
+    const name = document.createElement('strong');
+    name.textContent = app.name;
+    const actions = document.createElement('div');
+    actions.className = 'header-actions';
+    actions.append(
+      dataButton('导出', () => exportApp(app)),
+      dataButton('导入', () => importApp(app)),
+      dataButton('云恢复', () => restoreApp(app)),
+    );
+    row.append(name, actions);
+    list.appendChild(row);
+  });
+}
+
+function dataButton(label, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'button secondary';
+  btn.textContent = label;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+async function exportApp(app) {
+  try {
+    const path = await dialog.save({
+      defaultPath: `${app.name}-data.json`,
+      filters: [{ name: 'JSON 数据', extensions: ['json'] }],
+    });
+    if (!path) return;
+    await requireInvoke()('export_app_data', { dirPath: app.dirPath, path });
+    showToast(`已导出 ${app.name}`);
+  } catch (error) {
+    showToast(`导出失败：${errorText(error)}`, 'error');
+  }
+}
+
+async function importApp(app) {
+  try {
+    const path = await dialog.open({
+      multiple: false,
+      filters: [{ name: 'JSON 数据', extensions: ['json'] }],
+    });
+    if (!path) return;
+    const report = await requireInvoke()('import_app_data', { dirPath: app.dirPath, path });
+    showToast(`已导入 ${report.written} 个文件，旧数据已备份`);
+  } catch (error) {
+    showToast(`导入失败：${errorText(error)}`, 'error');
+  }
+}
+
+async function restoreApp(app) {
+  try {
+    const ok = await dialog.confirm(`从 WebDAV 恢复 ${app.name} 的数据？现有数据会先自动备份。`, { title: '云恢复' });
+    if (!ok) return;
+    const report = await requireInvoke()('webdav_restore_app', { dirPath: app.dirPath });
+    showToast(`已恢复 ${report.downloaded} 个文件，旧数据已备份`);
+  } catch (error) {
+    showToast(`云恢复失败：${errorText(error)}`, 'error');
+  }
+}
+
+function setWdStatus(text, isError = false) {
+  const el = $('wd-status');
+  el.textContent = text;
+  el.classList.toggle('error', isError);
+}
+
+async function webdavTest() {
+  setWdStatus('正在测试连接…');
+  try {
+    const msg = await requireInvoke()('webdav_test');
+    setWdStatus(msg);
+  } catch (error) {
+    setWdStatus(`连接失败：${errorText(error)}`, true);
+  }
+}
+
+async function webdavBackup() {
+  setWdStatus('正在备份全部软件数据…');
+  try {
+    const reports = await requireInvoke()('webdav_backup_all');
+    const uploaded = reports.reduce((n, r) => n + r.uploaded, 0);
+    setWdStatus(`备份完成：${reports.length} 个软件，上传 ${uploaded} 个文件`);
+    showToast('云备份完成');
+  } catch (error) {
+    setWdStatus(`备份失败：${errorText(error)}`, true);
+  }
+}
+
 function bindEvents() {
   $('open-settings').addEventListener('click', () => setView('settings'));
+  $('wd-test-btn').addEventListener('click', webdavTest);
+  $('wd-backup-btn').addEventListener('click', webdavBackup);
   $('rescan-launcher').addEventListener('click', async () => {
     await scanApps();
     showToast('已重新扫描');
